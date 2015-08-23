@@ -3,4 +3,5 @@
   (:use #:cl+qt #:flare #:flare-vector)
   (:shadowing-import-from #:flare-vector #:copy)
   (:export
-   #:main))
+   #:main
+   #:standalone))

@@ -8,11 +8,15 @@
                (:file "toolkit")
                (:file "fixed-queue")
                (:file "world")
-               (:file "city")
+               (:file "planet")
                (:file "player")
                (:file "windowing"))
+  :defsystem-depends-on (:qtools)
   :depends-on (:flare
                :qtools
                :qtcore
                :qtgui
-               :qtopengl))
+               :qtopengl)  
+  :build-operation "qt-program-op"
+  :build-pathname "ld33"
+  :entry-point "ld33:standalone")

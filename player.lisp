@@ -6,17 +6,19 @@
     (push (make-instance 'player-part :sprite "graphics/snaketail.png") tail)
     (dotimes (i size)
       (push (make-instance 'player-part) tail))
-    (nreverse tail)))
+    tail))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass player (sprite-entity)
+  (defclass player (sprite-entity hitbox-entity)
     ((v :initform (vec 0 0 0) :accessor v)
      (vmax :initform 15 :accessor vmax)
-     (vacc :initform 1 :accessor vacc)
+     (vacc :initform 2 :accessor vacc)
      (vdcc :initform 0.65 :accessor vdcc)
      (parts :initform (make-tail 5) :accessor parts)
      (positions :initform (make-fixed-size-queue 10))
-     (angle :initform 0 :accessor angle))
+     (angle :initform 0 :accessor angle)
+     (invincible :initform NIL :accessor invincible)
+     (power :initform 2 :accessor power))
     (:default-initargs
      :sprite "graphics/snakehead.png")))
 
@@ -29,28 +31,6 @@
   (with-translation ((location part) target)
     (q+:rotate target (angle part))
     (draw-image-centered (sprite part) target)))
-
-(defclass player-bullet (bullet)
-  ((v :initarg :v :accessor v))
-  (:default-initargs
-   :sprite "graphics/part1.png"))
-
-(defmethod update ((bullet player-bullet))
-  (incf (x (location bullet)) (x (v bullet)))
-  (incf (y (location bullet)) (y (v bullet)))
-  ;; collision, horrible kludge. Forgive me, future me.
-  (do-container-tree (entity (world))
-    (when (and (typep entity 'enemy)
-               (colliding bullet entity))
-      (damage entity 1)
-      (leave bullet (player))
-      (return)))
-  ;; death
-  (with-timer-ready (bullet 2)
-    (leave bullet (player))))
-
-(defmethod paint ((bullet player-bullet) target)
-  (call-next-method))
 
 (defun distribute-parts (positions parts)
   (let ((lengths ())
@@ -70,17 +50,17 @@
                 (setf prev pos)))))
       ;; FIXME: Somehow this is fucking broken but I don't know why or how.
       ;; extrapolate leftover tail
-      ;; (let ((leftover (- (* (length parts) 20) length)))
-      ;;   (when (and (< 0 leftover) lengths)
-      ;;     (destructuring-bind (p n l a) (car lengths)
-      ;;       (let ((diff (-translated n p)))
-      ;;         (push (list
-      ;;                n
-      ;;                (translate (scale diff (/ leftover (- (size diff)))) n)
-      ;;                leftover
-      ;;                a)
-      ;;               lengths)))
-      ;;     (incf length leftover)))
+      (let ((leftover (- (* (length parts) 20) length)))
+        (when (and (< 0 leftover) lengths)
+          (destructuring-bind (p n l a) (car lengths)
+            (let ((diff (-translated n p)))
+              (push (list
+                     n
+                     (translate (scale diff (- (/ leftover (- (size diff))))) n)
+                     leftover
+                     a)
+                    lengths)))
+          (incf length leftover)))
       (setf lengths (nreverse lengths))
       ;; step
       (when lengths
@@ -102,9 +82,7 @@
                             (incf dist step))))))))
 
 (defmethod update ((player player))
-  (flare-indexed-set:do-set (i obj) (objects player)
-    (declare (ignore i))
-    (update obj))
+  (call-next-method)
   (with-slots-bound (player player)
     (let ((motion-input NIL))
       (when (key-pressed-p (q+:qt.key_left))
@@ -133,21 +111,51 @@
       (enqueue (cons angle (copy (location player))) positions))
     (distribute-parts positions parts)
 
-    (when (key-pressed-p (q+:qt.key_space))
-      (with-timer-ready ('bullet 0.1)
-        (enter (make-instance 'player-bullet :location (copy (location player))
-                                             :v (scale (deg->xy (+ 90 angle)) 20)) player)))
+    (when invincible
+      (with-timer-ready ('invincible 3)
+        (timer-ready-p 'invincible 3 (world))
+        (setf invincible NIL)))
+
+    (do-container-tree (part (world))
+      (when (and (typep part 'planet)
+                 (colliding part (location player))
+                 (colliding part (vec (+ (x (location player)) (x v))
+                                      (- (y (location player)) (y v))
+                                      0)))
+        (let* ((n (normalize (-translated (location player) (location part))))
+               (pos (translated (scaled n (1+ (size part))) (location part))))
+          (setf (location player) pos)
+          (-translate v (scale n (* 2 (dot n v)))))
+        (enter (make-instance 'explosion
+                              :size (+ 50 (random 150))
+                              :location (copy (location player)))
+               player)
+        (damage part (power player)))
+      (when (and (typep part 'planet-bullet)
+                 (not invincible)
+                 (colliding part player))
+        (cond ((cdr parts)
+               (pop parts))
+              (T
+               (leave player T)
+               (stop (world))))
+        (setf invincible T)))
 
     (incf (x (location player)) (x v))
     (decf (y (location player)) (y v))
-    (cap (scene player) (location player))))
+    (cap (world) (location player))))
 
 (defmethod paint ((player player) target)
+  (flet ((paint ()
+           (dolist (part (parts player))
+             (paint part target))
+           (with-translation ((location player) target)
+             (q+:rotate target (angle player))
+             (draw-image-centered (sprite player) target))))
+    (if (invincible player)
+        (unless (timer-ready-p 'invincible-blink 0.1 (world))
+          (paint))
+        (paint)))
   (flare-indexed-set:do-set (i obj) (objects player)
     (declare (ignore i))
-    (paint obj target))
-  (dolist (part (parts player))
-    (paint part target))
-  (with-translation ((location player) target)
-    (q+:rotate target (angle player))
-    (draw-image-centered (sprite player) target)))
+    (paint obj target)))

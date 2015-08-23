@@ -6,22 +6,25 @@
 
 (define-widget main (QGLWidget)
   ((world :initform (make-instance 'world) :finalized T)
-   (player :initform (make-instance 'player))
-   (city1 :initform (make-instance 'city1))
+   (player :initform (make-instance 'player :name :player))
    (keys :initform (make-hash-table :test 'eql) :accessor keys)))
 
 (define-subwidget (main timer) (q+:make-qtimer main)
   (setf (q+:single-shot timer) T)
   (q+:start timer (round *fps*)))
 
-(define-subwidget (main background) (q+:make-qimage (asset "graphics/bg.png")))
+(define-subwidget (main background) (asset 'image "graphics/bg.png"))
 
 (define-initializer (main setup)
   (setf *main* main)
-  (enter player world)
-  (enter city1 world))
+  (enter (make-instance 'planet1) world)
+  (enter (make-instance 'planet2) world)
+  (enter (make-instance 'planet3) world)
+  (enter player world))
 
 (define-finalizer (main teardown)
+  (loop for v being the hash-values of *asset-store* do (finalize v))
+  (setf *asset-store* (make-hash-table :test 'equalp))
   (setf *main* NIL))
 
 (define-slot (main update) ()
@@ -83,7 +86,6 @@
       (setf (q+:style (q+:background painter)) (q+:qt.solid-pattern))
       (setf (q+:color (q+:background painter)) (q+:qt.black))
       (setf (q+:style (q+:brush painter)) (q+:qt.solid-pattern))
-      (setf (q+:pen painter) (q+:qt.no-pen))
       ;; background
       (setf (q+:transform bgbrush)
             (q+:translate (q+:transform bgbrush)
@@ -99,14 +101,28 @@
           (paint world painter)))
       ;; overlay
       (unless (running main)
-        (setf (q+:color (q+:brush painter)) (q+:make-qcolor 255 255 255 120))
-        (q+:draw-rect painter (q+:rect main))
-        (setf (q+:pen painter) (q+:make-qpen (q+:qt.black)))
-        (setf (q+:color (q+:brush painter)) (q+:qt.black))
-        (let ((font (q+:font painter)))
-          (setf (q+:point-size font) 32)
-          (setf (q+:font painter) font)
-          (q+:draw-text painter 10 42 "Paused"))))))
+        (with-finalizing ((overlay (q+:make-qcolor 0 0 0 180))
+                          (white (q+:make-qcolor 255 255 255)))
+          (q+:fill-rect painter (q+:rect main) overlay)
+          (setf (q+:color (q+:pen painter)) white)
+          (let ((font (q+:font painter)))
+            (setf (q+:font painter) font)
+
+            (q+:draw-text
+             painter
+             (q+:rect main)
+             (q+:qt.align-center)
+             (cond ((not (unit :player world))
+                    (setf (q+:point-size font) 72)
+                    "Game Over")
+                   ((not (do-container-tree (entity world)
+                           (when (typep entity 'planet)
+                             (return T))))
+                    (setf (q+:point-size font) 72)
+                    "Victory!")
+                   (T
+                    (setf (q+:point-size font) 32)
+                    (format NIL "Paused.~%Escape to Resume"))))))))))
 
 (defmethod call-with-translation (func target vec)
   (q+:save target)
@@ -115,14 +131,19 @@
        (funcall func)
     (q+:restore target)))
 
-(defvar *standalone* NIL)
-(defun asset (path)
-  (uiop:native-namestring
-   (if *standalone*
-       (merge-pathnames path (uiop:argv0))
-       (asdf:system-relative-pathname :ld33 path))))
+(defmethod paint :around ((paintable paintable) target)
+  (let ((opacity (q+:opacity target)))
+    (setf (q+:opacity target) (* opacity (visibility paintable)))
+    (unwind-protect
+         (call-next-method)
+      (setf (q+:opacity target) opacity))))
 
 (defun main (&key (blocking NIL))
   (unless *main*
     (with-main-window (window 'main :blocking blocking :name "LD33"))))
+
+(defun standalone (&rest args)
+  (declare (ignore args))
+  (setf *standalone* T)
+  (main :blocking T))
 
