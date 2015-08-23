@@ -17,6 +17,8 @@
 
 (define-initializer (main setup)
   (setf *main* main)
+  (q+:resize main 1024 768)
+  (setf (q+:window-title main) "The End of All We Know")
   (enter (make-instance 'planet1) world)
   (enter (make-instance 'planet2) world)
   (enter (make-instance 'planet3) world)
@@ -140,7 +142,9 @@
 
 (defun main (&key (blocking NIL))
   (unless *main*
-    (with-main-window (window 'main :blocking blocking :name "LD33"))))
+    #+:sbcl (sb-ext:disable-debugger)
+    (setf v:*global-controller* (v:make-standard-global-controller))
+    (with-main-window (window 'main :blocking blocking :name "The End of All We Know"))))
 
 (defun standalone (&rest args)
   (declare (ignore args))
