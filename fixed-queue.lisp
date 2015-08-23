@@ -24,10 +24,10 @@
   queue)
 
 (defun map-queue (function queue)
-  (loop for i = (head queue) then (mod (1+ i) (capacity queue))
+  (loop for i = (mod (1- (tail queue)) (capacity queue)) then (mod (1- i) (capacity queue))
         for el = (aref (objects queue) i)
-        until (= i (tail queue))
-        do (funcall function el)))
+        do (funcall function el)
+        until (= i (head queue))))
 
 (defmacro do-queue ((element queue) &body body)
   `(block NIL (map-queue (lambda (,element) ,@body) ,queue)))
