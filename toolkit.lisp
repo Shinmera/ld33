@@ -25,4 +25,4 @@
                                (merge-pathnames path (uiop:argv0))
                                (asdf:system-relative-pathname :ld33 path)))))
                 (ecase type
-                  (image (q+:make-qimage path))))))))
+                  (image (q+:make-qimage path "png"))))))))

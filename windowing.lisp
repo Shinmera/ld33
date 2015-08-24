@@ -142,12 +142,12 @@
 
 (defun main (&key (blocking NIL))
   (unless *main*
-    #+:sbcl (sb-ext:disable-debugger)
     (setf v:*global-controller* (v:make-standard-global-controller))
     (with-main-window (window 'main :blocking blocking :name "The End of All We Know"))))
 
 (defun standalone (&rest args)
   (declare (ignore args))
+  #+:sbcl (sb-ext:disable-debugger)
   (setf *standalone* T)
   (main :blocking T))
 
