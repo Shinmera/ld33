@@ -1,4 +1,4 @@
-(in-package #:cl-user)
+
 (eval-when (:load-toplevel :compile-toplevel :execute)
   (push :verbose-no-init *features*)
   #+quicklisp (ql:quickload :verbose)
