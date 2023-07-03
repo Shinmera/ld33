@@ -5,8 +5,8 @@
   #-quicklisp (asdf:load-system :verbose))
 
 (asdf:defsystem ld33
-  :author "Nicolas Hafner <shinmera@tymoon.eu>"
-  :maintainer "Nicolas Hafner <shinmera@tymoon.eu>"
+  :author "Yukari Hafner <shinmera@tymoon.eu>"
+  :maintainer "Yukari Hafner <shinmera@tymoon.eu>"
   :homepage "https://github.com/Shinmera/ld33"
   :version "0.0.0"
   :components ((:file "package")
