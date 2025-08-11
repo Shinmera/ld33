@@ -7,7 +7,7 @@
 (asdf:defsystem ld33
   :author "Yukari Hafner <shinmera@tymoon.eu>"
   :maintainer "Yukari Hafner <shinmera@tymoon.eu>"
-  :homepage "https://github.com/Shinmera/ld33"
+  :homepage "https://shinmera.com/project/ld33"
   :version "0.0.0"
   :components ((:file "package")
                (:file "toolkit")
